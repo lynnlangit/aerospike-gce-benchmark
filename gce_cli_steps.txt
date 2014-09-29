@@ -1,0 +1,136 @@
+# Prerequisites
+#
+# - install gcloud tool (https://developers.google.com/cloud/sdk/)
+# - Also do the authentication (gcloud auth login)
+
+
+------------------- SETUP -----------------------
+
+# 1
+# parameterize how many server & clients we need
+# Uncomment step-6 if number of servers >= 32
+export NUM_AS_SERVERS=10
+export NUM_AS_CLIENTS=20
+export ZONE=us-central1-b
+export PROJECT=maximal-inkwell-658
+
+# 2
+# set the default project & zone so that we don’t need to pass it each time
+gcloud config set project $PROJECT
+gcloud config set compute/zone $ZONE
+
+# 3
+# create boot-disks, persistent disk and server instnaces (takes time. dont press ctrl-c)
+for i in $(seq 1 $NUM_AS_SERVERS); do 
+echo "server-$i: "
+gcloud compute disks create as-persistent-disk-$i --zone $ZONE --size "500GB"
+gcloud compute disks create as-server-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot"
+gcloud compute instances create as-server-$i --zone $ZONE --machine-type "n1-standard-8" --tags "http-server" --disk "name=as-server-disk-$i" "mode=rw" "boot=yes" "auto-delete=yes"
+gcloud compute instances attach-disk as-server-$i --disk as-persistent-disk-$i
+done
+
+# 4
+# Upload the config file
+####################################
+##################### TODO
+####################################
+for i in $(seq 1 $NUM_AS_SERVERS); do 
+echo -n "server-$i: "
+gcloud compute copy-files /Users/sunil/work/github/aerospike-gce-benchmark/aerospike.conf sunil@as-server-$i:
+gcloud compute ssh as-server-$i --zone $ZONE --command "sudo mv ~/aerospike.conf /etc/aerospike/aerospike.conf"
+done
+
+# 5
+# Modify the config file to setup the mesh
+server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
+for i in $(seq 1 $NUM_AS_SERVERS); do 
+echo -n "server-$i: "
+gcloud compute ssh as-server-$i --zone $ZONE --command "sudo sed -i 's/mesh-address .*/mesh-address $server1_ip/g' /etc/aerospike/aerospike.conf"
+done
+
+# 6
+# This step is needed if going beyond the default limit of 32 nodes. Uncomment if needed
+# This command should be run only once as it will add a new line to the config file every time it runs.
+#for i in $(seq 1 $NUM_AS_SERVERS); do 
+#echo -n "server-$i: "
+#gcloud compute ssh as-server-$i --zone $ZONE --command "sudo sed -i 's/proto-fd-max 15000/proto-fd-max 15000\n\tpaxos-max-cluster-size 60/g' /etc/aerospike/aerospike.conf
+"
+#done
+
+# 7
+# create client boot-disks and client instnaces (takes time. dont press ctrl-c)
+for i in $(seq 1 $NUM_AS_CLIENTS); do 
+echo -n "client-$i: "
+gcloud compute disks create as-client-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot"
+gcloud compute instances create as-client-$i --zone $ZONE --machine-type "n1-highcpu-8" --tags "http-server" --disk "name=as-client-disk-$i" "mode=rw" "boot=yes" "auto-delete=yes"
+done
+
+# 8
+# boot servers (which will form cluster)
+for i in $(seq 1 $NUM_AS_SERVERS); do 
+echo -n "server-$i: "
+gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
+done
+
+# 9
+# start AMC on server-1
+# Find the public IP of as-server-1 and in your browser open http://<public ip of server-1>:8081
+gcloud compute ssh as-server-1 --zone $ZONE --ssh-flag="-t" --command "sudo service amc start"
+
+
+------------------- LOAD -----------------------
+
+# 10
+# set load params
+export NUM_KEYS=100000000
+export CLIENT_THREADS=256
+server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
+
+# 11
+# do inserts
+num_keys_perclient=$(expr $NUM_KEYS / $NUM_AS_CLIENTS )
+for i in $(seq 1 $NUM_AS_CLIENTS); do 
+startkey=$(expr \( $NUM_KEYS / $NUM_AS_CLIENTS \) \* \( $i - 1 \) )
+echo -n "client-$i: "
+gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w I -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
+done
+
+
+# 12
+# run read-modify-write load + read load with desired read percentage
+# start two instances of the client on each machine
+export READPCT=100
+server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
+for i in $(seq 1 $NUM_AS_CLIENTS); do 
+echo -n "client-$i: "
+gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
+gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
+done
+
+# 13
+# to stop the load
+for i in $(seq 1 $NUM_AS_CLIENTS); do 
+gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
+done
+
+
+------------------- CLEAN -----------------------
+
+# 14
+# stop servers
+for i in $(seq 1 $NUM_AS_SERVERS); do 
+echo -n "server-$i: "
+gcloud compute ssh as-server-$i --zone $ZONE --command "sudo kill \`pgrep asd\`"
+done
+
+# 15
+# delete additional persistent disk
+for i in $(seq 1 $NUM_AS_SERVERS); do 
+gcloud compute instances detach-disk as-server-$i --disk as-persistent-disk-$i
+gcloud compute disks delete as-persistent-disk-$i --zone $ZONE -q
+done
+
+# 16
+# Shutdown the instances
+gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_SERVERS); do echo -n as-server-$i " "; done`
+gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_CLIENTS); do echo -n as-client-$i " "; done`
