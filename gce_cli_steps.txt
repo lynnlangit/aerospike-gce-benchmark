@@ -67,6 +67,8 @@ done
 
 # 8
 # boot servers (which will form cluster)
+# We are running server only on 7 cores (0-6) out of 8 cores using the taskset command
+# network latencies take a hit when all the cores are busy
 for i in $(seq 1 $NUM_AS_SERVERS); do 
 echo -n "server-$i: "
 gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
