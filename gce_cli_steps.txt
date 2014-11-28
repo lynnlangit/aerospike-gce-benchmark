@@ -13,6 +13,9 @@ export NUM_AS_SERVERS=10
 export NUM_AS_CLIENTS=20
 export ZONE=us-central1-b
 export PROJECT=maximal-inkwell-658
+export SERVER_INSTANCE_TYPE=n1-standard-8
+export CLIENT_INSTANCE_TYPE=n1-highcpu-8
+export USE_PERSISTENT_DISK=0
 
 # 2
 # set the default project & zone so that we don’t need to pass it each time
@@ -23,20 +26,21 @@ gcloud config set compute/zone $ZONE
 # create boot-disks, persistent disk and server instnaces (takes time. dont press ctrl-c)
 for i in $(seq 1 $NUM_AS_SERVERS); do 
 echo "server-$i: "
+gcloud compute disks create as-server-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot" --type "pd-ssd"
+gcloud compute instances create as-server-$i --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --disk "name=as-server-disk-$i" "mode=rw" "boot=yes" "auto-delete=yes"
+if [ $USE_PERSISTENT_DISK -eq 1 ]
+then
 gcloud compute disks create as-persistent-disk-$i --zone $ZONE --size "500GB"
-gcloud compute disks create as-server-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot"
-gcloud compute instances create as-server-$i --zone $ZONE --machine-type "n1-standard-8" --tags "http-server" --disk "name=as-server-disk-$i" "mode=rw" "boot=yes" "auto-delete=yes"
 gcloud compute instances attach-disk as-server-$i --disk as-persistent-disk-$i
+fi
 done
 
 # 4
 # Upload the config file
-####################################
-##################### TODO
-####################################
+# Replace the config file path and the username with the desired ones
 for i in $(seq 1 $NUM_AS_SERVERS); do 
 echo -n "server-$i: "
-gcloud compute copy-files /Users/sunil/work/github/aerospike-gce-benchmark/aerospike.conf sunil@as-server-$i:
+gcloud compute copy-files aerospike.conf sunil@as-server-$i:
 gcloud compute ssh as-server-$i --zone $ZONE --command "sudo mv ~/aerospike.conf /etc/aerospike/aerospike.conf"
 done
 
@@ -62,7 +66,7 @@ done
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
 echo -n "client-$i: "
 gcloud compute disks create as-client-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot"
-gcloud compute instances create as-client-$i --zone $ZONE --machine-type "n1-highcpu-8" --tags "http-server" --disk "name=as-client-disk-$i" "mode=rw" "boot=yes" "auto-delete=yes"
+gcloud compute instances create as-client-$i --zone $ZONE --machine-type $CLIENT_INSTANCE_TYPE --tags "http-server" --disk "name=as-client-disk-$i" "mode=rw" "boot=yes" "auto-delete=yes"
 done
 
 # 8
@@ -127,10 +131,13 @@ done
 
 # 15
 # delete additional persistent disk
+if [ $USE_PERSISTENT_DISK -eq 1 ]
+then
 for i in $(seq 1 $NUM_AS_SERVERS); do 
 gcloud compute instances detach-disk as-server-$i --disk as-persistent-disk-$i
 gcloud compute disks delete as-persistent-disk-$i --zone $ZONE -q
 done
+fi
 
 # 16
 # Shutdown the instances
