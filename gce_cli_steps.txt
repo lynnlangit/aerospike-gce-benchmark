@@ -1,7 +1,7 @@
 # Prerequisites
 #
-# - install gcloud tool (https://developers.google.com/cloud/sdk/)
-# - Also do the authentication (gcloud auth login)
+# - Install the gcloud tool (https://cloud.google.com/sdk/)
+# - Authenticate by running `gcloud auth login`
 
 
 ------------------- SETUP -----------------------
