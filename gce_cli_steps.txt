@@ -15,7 +15,7 @@ export ZONE=us-central1-b
 export PROJECT=maximal-inkwell-658
 export SERVER_INSTANCE_TYPE=n1-standard-8
 export CLIENT_INSTANCE_TYPE=n1-highcpu-8
-export USE_PERSISTENT_DISK=0
+export USE_PERSISTENT_DISK=1
 
 # 2
 # set the default project & zone so that we don’t need to pass it each time
@@ -40,7 +40,7 @@ done
 # Replace the config file path and the username with the desired ones
 for i in $(seq 1 $NUM_AS_SERVERS); do 
 echo -n "server-$i: "
-gcloud compute copy-files aerospike.conf sunil@as-server-$i:
+gcloud compute copy-files inmem_and_ondisk_aerospike.conf sunil@as-server-$i:aerospike.conf
 gcloud compute ssh as-server-$i --zone $ZONE --command "sudo mv ~/aerospike.conf /etc/aerospike/aerospike.conf"
 done
 
@@ -116,6 +116,7 @@ done
 # 13
 # to stop the load
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
+echo -n "client-$i: "
 gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
 done
 
