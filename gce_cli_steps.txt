@@ -23,7 +23,7 @@ gcloud config set project $PROJECT
 gcloud config set compute/zone $ZONE
 
 # 3
-# create boot-disks, persistent disk and server instnaces (takes time. dont press ctrl-c)
+# create boot-disks, persistent disk and server instances (takes time. dont press ctrl-c)
 for i in $(seq 1 $NUM_AS_SERVERS); do 
 echo "server-$i: "
 gcloud compute disks create as-server-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot" --type "pd-ssd"
@@ -62,7 +62,7 @@ done
 #done
 
 # 7
-# create client boot-disks and client instnaces (takes time. dont press ctrl-c)
+# create client boot-disks and client instances (takes time. dont press ctrl-c)
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
 echo -n "client-$i: "
 gcloud compute disks create as-client-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot"
