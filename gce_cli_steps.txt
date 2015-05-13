@@ -15,7 +15,7 @@ export ZONE=us-central1-b
 export PROJECT=maximal-inkwell-658
 export SERVER_INSTANCE_TYPE=n1-standard-8
 export CLIENT_INSTANCE_TYPE=n1-highcpu-8
-export USE_PERSISTENT_DISK=1
+export USE_PERSISTENT_DISK=0
 
 # 2
 # set the default project & zone so that we don’t need to pass it each time
@@ -23,33 +23,32 @@ gcloud config set project $PROJECT
 gcloud config set compute/zone $ZONE
 
 # 3
-# create boot-disks, persistent disk and server instances (takes time. dont press ctrl-c)
-for i in $(seq 1 $NUM_AS_SERVERS); do 
-echo "server-$i: "
-gcloud compute disks create as-server-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot" --type "pd-ssd"
-gcloud compute instances create as-server-$i --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --disk "name=as-server-disk-$i" "mode=rw" "boot=yes" "auto-delete=yes"
+# In parallel, create server instances from the image. Create persistent disks if requested (takes time. dont press ctrl-c)
+gcloud compute instances create `for i in $(seq 1 $NUM_AS_SERVERS); do echo as-server-$i; done` --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --image aerospike-image-1 --image-project $PROJECT
 if [ $USE_PERSISTENT_DISK -eq 1 ]
 then
-gcloud compute disks create as-persistent-disk-$i --zone $ZONE --size "500GB"
-gcloud compute instances attach-disk as-server-$i --disk as-persistent-disk-$i
+  gcloud compute disks create `for i in $(seq 1 $NUM_AS_SERVERS); do echo as-persistent-disk-$i; done` --zone $ZONE --size "500GB"
+  for i in $(seq 1 $NUM_AS_SERVERS); do 
+    echo "server-$i: "
+    gcloud compute instances attach-disk as-server-$i --disk as-persistent-disk-$i
+  done
 fi
-done
 
 # 4
 # Upload the config file
 # Replace the config file path and the username with the desired ones
 for i in $(seq 1 $NUM_AS_SERVERS); do 
-echo -n "server-$i: "
-gcloud compute copy-files inmem_and_ondisk_aerospike.conf sunil@as-server-$i:aerospike.conf
-gcloud compute ssh as-server-$i --zone $ZONE --command "sudo mv ~/aerospike.conf /etc/aerospike/aerospike.conf"
+  echo -n "server-$i: "
+  gcloud compute copy-files inmem_only_aerospike.conf sunil@as-server-$i:aerospike.conf
+  gcloud compute ssh as-server-$i --zone $ZONE --command "sudo mv ~/aerospike.conf /etc/aerospike/aerospike.conf"
 done
 
 # 5
 # Modify the config file to setup the mesh
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 for i in $(seq 1 $NUM_AS_SERVERS); do 
-echo -n "server-$i: "
-gcloud compute ssh as-server-$i --zone $ZONE --command "sudo sed -i 's/mesh-address .*/mesh-address $server1_ip/g' /etc/aerospike/aerospike.conf"
+  echo -n "server-$i: "
+  gcloud compute ssh as-server-$i --zone $ZONE --command "sudo sed -i 's/mesh-address .*/mesh-address $server1_ip/g' /etc/aerospike/aerospike.conf"
 done
 
 # 6
@@ -57,25 +56,20 @@ done
 # This command should be run only once as it will add a new line to the config file every time it runs.
 #for i in $(seq 1 $NUM_AS_SERVERS); do 
 #echo -n "server-$i: "
-#gcloud compute ssh as-server-$i --zone $ZONE --command "sudo sed -i 's/proto-fd-max 15000/proto-fd-max 15000\n\tpaxos-max-cluster-size 60/g' /etc/aerospike/aerospike.conf
-"
+#gcloud compute ssh as-server-$i --zone $ZONE --command "sudo sed -i 's/proto-fd-max 15000/proto-fd-max 15000\n\tpaxos-max-cluster-size 60/g' /etc/aerospike/aerospike.conf"
 #done
 
 # 7
-# create client boot-disks and client instances (takes time. dont press ctrl-c)
-for i in $(seq 1 $NUM_AS_CLIENTS); do 
-echo -n "client-$i: "
-gcloud compute disks create as-client-disk-$i --zone $ZONE --source-snapshot "aerospike-snapshot"
-gcloud compute instances create as-client-$i --zone $ZONE --machine-type $CLIENT_INSTANCE_TYPE --tags "http-server" --disk "name=as-client-disk-$i" "mode=rw" "boot=yes" "auto-delete=yes"
-done
+# In prallel, create client boot-disks and client instances (takes time. dont press ctrl-c)
+gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS); do echo as-client-$i; done` --zone $ZONE --machine-type $CLIENT_INSTANCE_TYPE --tags "http-server" --image aerospike-image-1 --image-project $PROJECT
 
 # 8
 # boot servers (which will form cluster)
 # We are running server only on 7 cores (0-6) out of 8 cores using the taskset command
 # network latencies take a hit when all the cores are busy
 for i in $(seq 1 $NUM_AS_SERVERS); do 
-echo -n "server-$i: "
-gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
+ echo -n "server-$i: "
+ gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
 done
 
 # 9
