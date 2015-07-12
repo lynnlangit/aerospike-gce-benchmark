@@ -68,8 +68,8 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS); do echo as-c
 # We are running server only on 7 cores (0-6) out of 8 cores using the taskset command
 # network latencies take a hit when all the cores are busy
 for i in $(seq 1 $NUM_AS_SERVERS); do 
- echo -n "server-$i: "
- gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
+  echo -n "server-$i: "
+  gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
 done
 
 # 9
@@ -90,28 +90,28 @@ server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep ne
 # do inserts
 num_keys_perclient=$(expr $NUM_KEYS / $NUM_AS_CLIENTS )
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
-startkey=$(expr \( $NUM_KEYS / $NUM_AS_CLIENTS \) \* \( $i - 1 \) )
-echo -n "client-$i: "
-gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w I -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
+  startkey=$(expr \( $NUM_KEYS / $NUM_AS_CLIENTS \) \* \( $i - 1 \) )
+  echo -n "client-$i: "
+  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w I -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
 
 # 12
 # run read-modify-write load + read load with desired read percentage
 # start two instances of the client on each machine
-export READPCT=100
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
+export READPCT=100
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
-echo -n "client-$i: "
-gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
-gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
+  echo -n "client-$i: "
+  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
+  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
 # 13
 # to stop the load
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
-echo -n "client-$i: "
-gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
+  echo -n "client-$i: "
+  gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
 done
 
 
@@ -120,18 +120,18 @@ done
 # 14
 # stop servers
 for i in $(seq 1 $NUM_AS_SERVERS); do 
-echo -n "server-$i: "
-gcloud compute ssh as-server-$i --zone $ZONE --command "sudo kill \`pgrep asd\`"
+  echo -n "server-$i: "
+  gcloud compute ssh as-server-$i --zone $ZONE --command "sudo kill \`pgrep asd\`"
 done
 
 # 15
 # delete additional persistent disk
 if [ $USE_PERSISTENT_DISK -eq 1 ]
 then
-for i in $(seq 1 $NUM_AS_SERVERS); do 
-gcloud compute instances detach-disk as-server-$i --disk as-persistent-disk-$i
-gcloud compute disks delete as-persistent-disk-$i --zone $ZONE -q
-done
+  for i in $(seq 1 $NUM_AS_SERVERS); do 
+    gcloud compute instances detach-disk as-server-$i --disk as-persistent-disk-$i
+  done
+  gcloud compute disks delete `for i in $(seq 1 $NUM_AS_SERVERS); do echo as-persistent-disk-$i; done` --zone $ZONE -q
 fi
 
 # 16
