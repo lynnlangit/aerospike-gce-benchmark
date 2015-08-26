@@ -33,7 +33,7 @@ gcloud config set project $PROJECT
 gcloud config set compute/zone $ZONE
 #
 
-# 3. CREATE SERVER GCE VMS AND DISKS
+# 3. CREATE SERVER GCE VMS AND DISKS          //how do we provide others with this image? another script to setup?
 # In parallel, create server instances from the image. Create persistent disks if requested (takes time. dont press ctrl-c)
 # You will see the instances become available in the GCP console, COMPUTE>VMs
 #
@@ -66,7 +66,7 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
 done
 #
 
-# 6. MODIFY CONFIG FILES AGAIN FOR MORE THAN 32 NODES ONLY
+# 6. MODIFY CONFIG FILES AGAIN FOR MORE THAN 32 NODES ONLY                                //what do lines 74-75 actually do?
 # This step is needed if going beyond the default limit of 32 nodes. Uncomment if needed  //don't understand, why?
 # This command should be run only once as it will add a new line to the config file every time it runs.
 #for i in $(seq 1 $NUM_AS_SERVERS); do 
@@ -109,7 +109,7 @@ export CLIENT_THREADS=256
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 #
 
-# 11. DO INSERTS 
+# 11. DO INSERTS             //what does line 118 do exactly?
 # 
 num_keys_perclient=$(expr $NUM_KEYS / $NUM_AS_CLIENTS )
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
@@ -119,7 +119,7 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
 done
 #
 
-# 12. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage
+# 12. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage   //explain lines 129 and 130
 # start two instances of the client on each machine
 #
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
