@@ -1,12 +1,11 @@
 # Prerequisites
 #
-# - Install the gcloud tool (https://cloud.google.com/sdk/)
-# - Authenticate by running `gcloud auth login`
 # - Create a new GCP project 
 # - Navigate to your project Compute> VM section
+# - Install the gcloud tool (https://cloud.google.com/sdk/)
 
 ------------------- SETUP -----------------------
-# 0 PREPARE
+# 0. PREPARE LOCAL WORKING AREA
 # - Create a working directory, cd into it
 # - Open Terminal
 # - Authenticate by running `gcloud auth login`
@@ -14,7 +13,7 @@
 gcloud auth login 
 #
 
-# 1 SET VARIABLES
+# 1. SET VARIABLES
 # parameterize how many server & clients we need
 # Uncomment step-6 if number of servers >= 32 //don't understand this
 #
@@ -27,14 +26,14 @@ export CLIENT_INSTANCE_TYPE=n1-highcpu-8
 export USE_PERSISTENT_DISK=0
 #
 
-# 2 SET DEFAULTS
+# 2. SET DEFAULTS
 # set the default project & zone so that we don’t need to pass it each time
 #
 gcloud config set project $PROJECT
 gcloud config set compute/zone $ZONE
 #
 
-# 3 CREATE SERVER VMS AND DISKS
+# 3. CREATE SERVER GCE VMS AND DISKS
 # In parallel, create server instances from the image. Create persistent disks if requested (takes time. dont press ctrl-c)
 # You will see the instances become available in the GCP console, COMPUTE>VMs
 #
@@ -49,8 +48,7 @@ then
 fi
 #
 
-# 4 UPDATE THE CONFIG FILES
-# Upload the config file
+# 4. UPDATE/UPLOAD THE CONFIG FILES
 # Replace the config file path and the username with the desired ones   //any non-standard conf file settings?
 #
 for i in $(seq 1 $NUM_AS_SERVERS); do 
@@ -60,9 +58,7 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
 done
 #
 
-# 5. MODIFY CONFIG FILES TO SETUP MESH or CLUSTER?
-# Modify the config file to setup the mesh                              //how do I verify this succeeded?
-#
+# 5. MODIFY CONFIG FILES TO SETUP MESH    //how do I verify this succeeded?
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 for i in $(seq 1 $NUM_AS_SERVERS); do 
   echo -n "server-$i: "
@@ -95,8 +91,7 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
 done
 #
 
-# 9
-# start AMC on server-1
+# 9. START AMC (Aerospike Management Console) on server-1
 # Find the public IP of as-server-1 and in your browser open http://<public ip of server-1>:8081
 # Then enter the internal IP in the dialog box in the AMC window http://<internal IP of server-1>:3000
 # You can find the IPs on GCP console, COMPUTE>click on instance named 'server-1'
@@ -107,25 +102,26 @@ gcloud compute ssh as-server-1 --zone $ZONE --ssh-flag="-t" --command "sudo serv
 
 ------------------- LOAD -----------------------
 
-# 10
-# set load params
+# 10. SET LOAD PARAMETERS
+#
 export NUM_KEYS=100000000
 export CLIENT_THREADS=256
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
+#
 
-# 11
-# do inserts
+# 11. DO INSERTS 
+# 
 num_keys_perclient=$(expr $NUM_KEYS / $NUM_AS_CLIENTS )
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
   startkey=$(expr \( $NUM_KEYS / $NUM_AS_CLIENTS \) \* \( $i - 1 \) )
   echo -n "client-$i: "
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w I -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
 done
+#
 
-
-# 12
-# run read-modify-write load + read load with desired read percentage
+# 12. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage
 # start two instances of the client on each machine
+#
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 export READPCT=100
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
@@ -133,26 +129,28 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
 done
+#
 
-# 13
-# to stop the load
+# 13. STOP THE LOAD
+# 
 for i in $(seq 1 $NUM_AS_CLIENTS); do 
   echo -n "client-$i: "
   gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
 done
-
+#
 
 ------------------- CLEAN -----------------------
 
-# 14
-# stop servers
+# 14. STOP SERVERS
+# 
 for i in $(seq 1 $NUM_AS_SERVERS); do 
   echo -n "server-$i: "
   gcloud compute ssh as-server-$i --zone $ZONE --command "sudo kill \`pgrep asd\`"
 done
+#
 
-# 15
-# delete additional persistent disk
+# 15. DELETE DISKS
+# 
 if [ $USE_PERSISTENT_DISK -eq 1 ]
 then
   for i in $(seq 1 $NUM_AS_SERVERS); do 
@@ -160,8 +158,10 @@ then
   done
   gcloud compute disks delete `for i in $(seq 1 $NUM_AS_SERVERS); do echo as-persistent-disk-$i; done` --zone $ZONE -q
 fi
+#
 
-# 16
-# Shutdown the instances
+# 16. SHUTDOWN ALL INSTANCES
+# 
 gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_SERVERS); do echo -n as-server-$i " "; done`
 gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_CLIENTS); do echo -n as-client-$i " "; done`
+#
