@@ -1,12 +1,11 @@
-## STARTING WITH GOOGLE CLOUD ##
-
+---------------STARTING WITH GOOGLE CLOUD--------------------
 # - Create or use your GCP account at https://cloud.google.com/
 # - Access your GCP console at https://console.developers.google.com
 # - Create a new GCP project 
 # - Navigate to your project Compute> VM section
 # - Install the gcloud tool download from - https://cloud.google.com/sdk/
 
-------------------- SETUP -----------------------
+------------------- SETUP: STEPS 0-9 -----------------------
 # 0. PREPARE LOCAL WORKING AREA
 # - Open Terminal
 # - Create a working directory, cd into it
@@ -88,7 +87,7 @@ done
 # - You may need to create firewall rules to open the ports, GCP console, COMPUTE>Firewalls
 gcloud compute ssh as-server-1 --zone $ZONE --ssh-flag="-t" --command "sudo service amc start"
 
-------------------- LOAD -----------------------
+------------------- LOAD: STEPS 10-13 -----------------------
 # 10. SET LOAD PARAMETERS
 export NUM_KEYS=100000000
 export CLIENT_THREADS=256
@@ -118,7 +117,7 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
   gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
 done
 
-------------------- CLEAN -----------------------
+------------------- CLEAN: STEPS 14-16 -----------------------
 # 14. STOP SERVERS
 for i in $(seq 1 $NUM_AS_SERVERS); do 
   echo -n "server-$i: "
