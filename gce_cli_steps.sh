@@ -118,45 +118,60 @@ export CLIENT_THREADS=256
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 
 # 11. DO INSERTS             //what does line 118 do exactly?
+echo "Starting inserts benchmarks..."
 num_keys_perclient=$(expr $NUM_KEYS / $NUM_AS_CLIENTS )
 for i in $(seq 1 $NUM_AS_CLIENTS); do
+  # XXX what do all the flags mean?
+  # XXX how is the benchmark tool installed? if already installed, where is it put?
   startkey=$(expr \( $NUM_KEYS / $NUM_AS_CLIENTS \) \* \( $i - 1 \) )
-  echo -n "client-$i: "
+  echo -n "  as-client-$i: "
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w I -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
 # 12. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage   //explain lines 129 and 130
 # - start two instances of the client on each machine
+echo "Starting read/modify/write benchmarks..."
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 export READPCT=100
 for i in $(seq 1 $NUM_AS_CLIENTS); do
-  echo -n "client-$i: "
+  # XXX same question, what do these flags mean
+  echo -n "  as-client-$i: "
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
+
+# Wait for user input to shut down the benchmarks
+read -p "Press any key to stop the benchmarks..."
+
+
 # 13. STOP THE LOAD
+echo "Shutting down benchmark clients..."
 for i in $(seq 1 $NUM_AS_CLIENTS); do
-  echo -n "client-$i: "
+  echo -n "  as-client-$i: "
   gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
 done
 
 # ------------------- CLEAN: STEPS 14-16 -----------------------
 # 14. STOP SERVERS
+echo "Shutting down aerospike daemons..."
 for i in $(seq 1 $NUM_AS_SERVERS); do
-  echo -n "server-$i: "
+  echo -n "  as-server-$i: "
   gcloud compute ssh as-server-$i --zone $ZONE --command "sudo kill \`pgrep asd\`"
 done
 
 # 15. DELETE DISKS
 if [ $USE_PERSISTENT_DISK -eq 1 ]
 then
+  echo "Deleting persistent disks..."
   for i in $(seq 1 $NUM_AS_SERVERS); do
+    echo -n "  detaching from as-server-$i: "
     gcloud compute instances detach-disk as-server-$i --disk as-persistent-disk-$i
   done
-  gcloud compute disks delete `for i in $(seq 1 $NUM_AS_SERVERS); do echo as-persistent-disk-$i; done` --zone $ZONE -q
+  gcloud compute disks delete `for i in $(seq 1 $NUM_AS_SERVERS); do echo   deleting as-persistent-disk-$i; done` --zone $ZONE -q
 fi
 
 # 16. SHUTDOWN ALL INSTANCES
-gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_SERVERS); do echo -n as-server-$i " "; done`
-gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_CLIENTS); do echo -n as-client-$i " "; done`
+echo "Shutting down VM instances..."
+gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_SERVERS); do echo -n   as-server-$i " "; done`
+gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_CLIENTS); do echo -n   as-client-$i " "; done`
