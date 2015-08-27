@@ -96,8 +96,8 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS); do echo   as
 
 # 8. BOOT SERVERS TO CREATE CLUSTER
 # - We are running server only on 7 cores (0-6) out of 8 cores using the taskset command
-# -                                                                                    //need better explanation of taskset
 # -  network latencies take a hit when all the cores are busy
+# XXX: what is the performance boost from enabling cpu affinity?
 echo "Starting aerospike daemons on cores 0-6..."
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "server-$i: "
@@ -109,6 +109,7 @@ done
 # - Then enter the internal IP in the dialog box in the AMC window http://<internal IP of server-1>:3000
 # - You can find the IPs on GCP console, COMPUTE>click on instance named 'server-1'
 # - You may need to create firewall rules to open the ports, GCP console, COMPUTE>Firewalls
+echo "Starting Aerospike management console on as-server-1"
 gcloud compute ssh as-server-1 --zone $ZONE --ssh-flag="-t" --command "sudo service amc start"
 
 # ------------------- LOAD: STEPS 10-13 -----------------------
