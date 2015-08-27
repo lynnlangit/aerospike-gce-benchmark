@@ -16,7 +16,7 @@ gcloud auth login
 # 1. SET VARIABLES
 # - parameterize how many server & clients we need
 # - Uncomment step-6 if number of servers >= 32   // default max in Aerospike is 32 servers, last time 50 server (now 17?)
-                                                  // 1 M TPS 50 nodes vs Cassandra, 1 M TPS 20 nodes
+#                                                 // 1 M TPS 50 nodes vs Cassandra, 1 M TPS 20 nodes
 # -                                               // what are the default GCP project limits for resources?
 export NUM_AS_SERVERS=10                        # // why these numbers?
 export NUM_AS_CLIENTS=20                        # // are these minimum numbers - avoid bottleneck
@@ -63,7 +63,7 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
   gcloud compute ssh as-server-$i --zone $ZONE --command "sudo mv ~/aerospike.conf /etc/aerospike/aerospike.conf"
 done
 
-# 5. MODIFY CONFIG FILES TO SETUP MESH    //how do I verify this succeeded?
+# 5. MODIFY CONFIG FILES TO SETUP MESH    //how do I verify this succeeded? command will return status
 #                                         // XXX we could cat & grep the config files and look for the IP
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 echo "Updating remote config files to use server1 IP $server1_ip as mesh-address":
@@ -97,8 +97,8 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS); do echo   as
 
 # 8. BOOT SERVERS TO CREATE CLUSTER
 # - We are running server only on 7 cores (0-6) out of 8 cores using the taskset command
-# -  network latencies take a hit when all the cores are busy
-# XXX: what is the performance boost from enabling cpu affinity?
+# - Network latencies take a hit when all the cores are busy
+# XXX: what is the performance boost from enabling cpu affinity? 10-20% slower
 echo "Starting aerospike daemons on cores 0-6..."
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "server-$i: "
