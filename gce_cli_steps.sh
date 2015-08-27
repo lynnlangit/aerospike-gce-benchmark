@@ -15,10 +15,11 @@ gcloud auth login
 
 # 1. SET VARIABLES
 # - parameterize how many server & clients we need
-# - Uncomment step-6 if number of servers >= 32   // in what situation is >=32 servers needed?
+# - Uncomment step-6 if number of servers >= 32   // default max in Aerospike is 32 servers, last time 50 server (now 17?)
+                                                  // 1 M TPS 50 nodes vs Cassandra, 1 M TPS 20 nodes
 # -                                               // what are the default GCP project limits for resources?
-export NUM_AS_SERVERS=10                        # // are these minimum numbers?
-export NUM_AS_CLIENTS=20                        # // are these minimum numbers?
+export NUM_AS_SERVERS=10                        # // why these numbers?
+export NUM_AS_CLIENTS=20                        # // are these minimum numbers - avoid bottleneck
 export ZONE=us-central1-b
 export PROJECT=<your-project-name>              # the project where the image files live
 export SERVER_INSTANCE_TYPE=n1-standard-8
