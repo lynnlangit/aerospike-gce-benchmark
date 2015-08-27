@@ -111,7 +111,7 @@ done
 # - You may need to create firewall rules to open the ports, GCP console, COMPUTE>Firewalls
 gcloud compute ssh as-server-1 --zone $ZONE --ssh-flag="-t" --command "sudo service amc start"
 
-------------------- LOAD: STEPS 10-13 -----------------------
+# ------------------- LOAD: STEPS 10-13 -----------------------
 # 10. SET LOAD PARAMETERS
 export NUM_KEYS=100000000
 export CLIENT_THREADS=256
@@ -141,7 +141,7 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
   gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
 done
 
-------------------- CLEAN: STEPS 14-16 -----------------------
+# ------------------- CLEAN: STEPS 14-16 -----------------------
 # 14. STOP SERVERS
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "server-$i: "
