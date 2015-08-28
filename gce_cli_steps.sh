@@ -15,11 +15,10 @@ gcloud auth login
 
 # 1. SET VARIABLES
 # - parameterize how many server & clients we need
-# - Uncomment step-6 if number of servers >= 32   // default max in Aerospike is 32 servers, last time 50 server (now 17?)
-#                                                 // 1 M TPS 50 nodes vs Cassandra, 1 M TPS 20 nodes
+# - Uncomment step-6 if number of servers >= 32   // default max in Aerospike is 32 servers, 1M TPS required 50 servers
 # -                                               // what are the default GCP project limits for resources?
-export NUM_AS_SERVERS=10                        # // why these numbers?
-export NUM_AS_CLIENTS=20                        # // are these minimum numbers - avoid bottleneck
+export NUM_AS_SERVERS=10                        # // estimated number of server for 1M TPS w/GCE update
+export NUM_AS_CLIENTS=20                        # // use 20 clients to avoid bottlenecks
 export ZONE=us-central1-b
 export PROJECT=<your-project-name>              # the project where the image files live
 export SERVER_INSTANCE_TYPE=n1-standard-8
@@ -47,7 +46,7 @@ then
 fi
 
 # 4. UPDATE/UPLOAD THE CONFIG FILES
-# - Replace the config file path and the username with the desired ones   //any non-standard conf file settings?
+# - Replace the config file path and the username with the desired ones   //update .conf if using more than 32 servers
 
 if [ $USE_PERSISTENT_DISK -eq 0 ]
 then
@@ -58,13 +57,13 @@ fi
 
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "as-server-$i: "
-  # XXX I think we can get rid of the user name and let it use the default
-  gcloud compute copy-files $CONFIG_FILE sunil@as-server-$i:aerospike.conf    # //<username>>@as-server-$1:... ?
+  # NEED TO PARAMETERIZE the USERNAME ##############
+  gcloud compute copy-files $CONFIG_FILE sunil@as-server-$i:aerospike.conf    
   gcloud compute ssh as-server-$i --zone $ZONE --command "sudo mv ~/aerospike.conf /etc/aerospike/aerospike.conf"
 done
 
 # 5. MODIFY CONFIG FILES TO SETUP MESH    //how do I verify this succeeded? command will return status
-#                                         // XXX we could cat & grep the config files and look for the IP
+#                                         // XXX we could cat & grep the config files and look for the IP - Yes, add this
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 echo "Updating remote config files to use server1 IP $server1_ip as mesh-address":
 for i in $(seq 1 $NUM_AS_SERVERS); do
@@ -72,13 +71,10 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
   gcloud compute ssh as-server-$i --zone $ZONE --command "sudo sed -i 's/mesh-address .*/mesh-address $server1_ip/g' /etc/aerospike/aerospike.conf"
 done
 
-# 6. MODIFY CONFIG FILES AGAIN FOR MORE THAN 32 NODES ONLY                                //what do lines 74-75 actually do?
-# -  This step is needed if going beyond the default limit of 32 nodes. Uncomment if needed  //don't understand, why?
-# -  This command should be run only once as it will add a new line to the config file every time it runs.   <-- XXX redundant comment, we just overwrote the file above
-
-# Update the max paxos cluster size to 60, if we're using more than 32 nodes.
+# 6. MODIFY CONFIG FILES AGAIN FOR MORE THAN 32 NODES ONLY                                
+# -  This step is needed if going beyond the default limit of 32 nodes. Uncomment if needed  
+#  - Update the max paxos cluster size to 60, if we're using more than 32 nodes.
 # XXX does this mean that the true maximum is 60?
-
 if [ $NUM_AS_SERVERS -gt 32 ]
 then
   echo "Setting paxos-max-cluster-size to 60:"
@@ -97,8 +93,7 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS); do echo   as
 
 # 8. BOOT SERVERS TO CREATE CLUSTER
 # - We are running server only on 7 cores (0-6) out of 8 cores using the taskset command
-# - Network latencies take a hit when all the cores are busy
-# XXX: what is the performance boost from enabling cpu affinity? 10-20% slower
+# - Network latencies take a hit when all the cores are busy - taskset improves perf by 10-20%, but must verify w/GCE updates
 echo "Starting aerospike daemons on cores 0-6..."
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "server-$i: "
@@ -119,33 +114,36 @@ export NUM_KEYS=100000000
 export CLIENT_THREADS=256
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 
-# 11. DO INSERTS             //what does line 118 do exactly?
+# 11. DO INSERTS AND RUNBENCHMARK TOOLS     
+# - Benchmark tools is included with Aerospike Java SDK
 echo "Starting inserts benchmarks..."
 num_keys_perclient=$(expr $NUM_KEYS / $NUM_AS_CLIENTS )
 for i in $(seq 1 $NUM_AS_CLIENTS); do
-  # XXX what do all the flags mean?
-  # XXX how is the benchmark tool installed? if already installed, where is it put?
   startkey=$(expr \( $NUM_KEYS / $NUM_AS_CLIENTS \) \* \( $i - 1 \) )
   echo -n "  as-client-$i: "
-  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w I -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
+# - For more about benchmark flags, use 'benchmarks -help'
+# - Benchmark flags as follows - uses 256 threads, -n <namespace>, -w <workload>, I <Insert>, 
+# - continues... -o <objects>, S:50 <strings of size 50>, -b <num bins or columns>, -l <key size in bytes>, -S <starting key>,
+# - continues... -k <keys per client>, -latency <historgram output>
+  gcloud compute ssh as-client-$i --zone $ZONE --command 
+    "cd ~/aerospike-client-java/benchmarks ; 
+    ./run_benchmarks -z $CLIENT_THREADS -n test -w I 
+    -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
-# 12. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage   //explain lines 129 and 130
+# 12. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage   
 # - start two instances of the client on each machine
 echo "Starting read/modify/write benchmarks..."
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 export READPCT=100
 for i in $(seq 1 $NUM_AS_CLIENTS); do
-  # XXX same question, what do these flags mean
   echo -n "  as-client-$i: "
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
-
 # Wait for user input to shut down the benchmarks
 read -p "Press any key to stop the benchmarks..."
-
 
 # 13. STOP THE LOAD
 echo "Shutting down benchmark clients..."
