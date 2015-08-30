@@ -47,7 +47,6 @@ fi
 
 # 4. UPDATE/UPLOAD THE CONFIG FILES
 # - Replace the config file path and the username with the desired ones   //update .conf if using more than 32 servers
-
 if [ $USE_PERSISTENT_DISK -eq 0 ]
 then
   export CONFIG_FILE=inmem_only_aerospike.conf
@@ -173,5 +172,7 @@ fi
 
 # 16. SHUTDOWN ALL INSTANCES
 echo "Shutting down VM instances..."
-gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_SERVERS); do echo -n   as-server-$i " "; done`
-gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_CLIENTS); do echo -n   as-client-$i " "; done`
+gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_SERVERS); 
+do echo -n   as-server-$i " "; done`
+gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_CLIENTS); 
+do echo -n   as-client-$i " "; done`
