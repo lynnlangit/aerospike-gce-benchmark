@@ -1,8 +1,7 @@
-# ---------------STARTING WITH GOOGLE CLOUD--------------------
+# ---------------STARTING WITH GOOGLE CLOUD: STEP 0------------
 # - Create or use your GCP account at https://cloud.google.com/
 # - Access your GCP console at https://console.developers.google.com
 # - Create a new GCP project, note the project name
-# - Navigate to your project Compute> VM section
 # - Install the gcloud tool download from - https://cloud.google.com/sdk/
 
 # 0. PREPARE LOCAL WORKING AREA
@@ -27,10 +26,13 @@ gcloud config set compute/zone $ZONE
 # 3. CREATE SERVER GCE VMS AND DISKS          
 # - In parallel, create server instances from an image. Create persistent disks if requested.
 echo "Creating GCE instances, please wait..."
-gcloud compute instances create `for i in $(seq 1 $NUM_AS_SERVERS); do echo   creating as-server-$i; done` --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --image aerospike-image-1 --image-project $PROJECT
+gcloud compute instances create `for i in $(seq 1 $NUM_AS_SERVERS); 
+do echo   creating as-server-$i; 
+done` --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --image aerospike-image-1 --image-project $PROJECT
 if [ $USE_PERSISTENT_DISK -eq 1 ]
 then
-  gcloud compute disks create `for i in $(seq 1 $NUM_AS_SERVERS); do echo   creating as-persistent-disk-$i; done` --zone $ZONE --size "500GB"
+  gcloud compute disks create `for i in $(seq 1 $NUM_AS_SERVERS); 
+  do echo   creating as-persistent-disk-$i; done` --zone $ZONE --size "500GB"
   for i in $(seq 1 $NUM_AS_SERVERS); do
     echo "  attaching to server-$i"
     gcloud compute instances attach-disk as-server-$i --disk as-persistent-disk-$i
