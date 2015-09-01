@@ -1,7 +1,7 @@
 # ---------------STARTING WITH GOOGLE CLOUD--------------------
 # - Create or use your GCP account at https://cloud.google.com/
 # - Access your GCP console at https://console.developers.google.com
-# - Create a new GCP project
+# - Create a new GCP project, note the project name
 # - Navigate to your project Compute> VM section
 # - Install the gcloud tool download from - https://cloud.google.com/sdk/
 
@@ -15,7 +15,7 @@ gcloud auth login
 export NUM_AS_SERVERS=20                        
 export NUM_AS_CLIENTS=20                        
 export ZONE=us-central1-b
-export PROJECT=<your-project-name>              # the project where the image files live
+export PROJECT=<your-project-name>              # use your project name
 export SERVER_INSTANCE_TYPE=n1-standard-8
 export CLIENT_INSTANCE_TYPE=n1-highcpu-8
 export USE_PERSISTENT_DISK=0                    # 0 for in-mem only, 1 for persistent disk
@@ -26,7 +26,6 @@ gcloud config set compute/zone $ZONE
 
 # 3. CREATE SERVER GCE VMS AND DISKS          
 # - In parallel, create server instances from an image. Create persistent disks if requested.
-# - You will see the instances become available in the GCP console, COMPUTE>VMs
 echo "Creating GCE instances, please wait..."
 gcloud compute instances create `for i in $(seq 1 $NUM_AS_SERVERS); do echo   creating as-server-$i; done` --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --image aerospike-image-1 --image-project $PROJECT
 if [ $USE_PERSISTENT_DISK -eq 1 ]
@@ -39,7 +38,6 @@ then
 fi
 
 # 4. UPDATE/UPLOAD THE CONFIG FILES
-# - Replace the config file path and the username with the desired ones 
 if [ $USE_PERSISTENT_DISK -eq 0 ]
 then
   export CONFIG_FILE=inmem_only_aerospike.conf
@@ -55,7 +53,7 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
 done
 
 # 5. MODIFY CONFIG FILES TO SETUP MESH    
-#                                         // XXX we could cat & grep the config files and look for the IP - Yes, add this
+#  NEED TO cat & grep the config files and look for the IP ##########################
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 echo "Updating remote config files to use server1 IP $server1_ip as mesh-address":
 for i in $(seq 1 $NUM_AS_SERVERS); do
@@ -64,15 +62,15 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
 done
 
 # 6. CREATE CLIENT VMS
-# - In prallel, create client boot-disks and client instances 
-# - You will see the disks become available in the GCP console, COMPUTE>Disks
+# - In parallel, create client boot-disks and client instances 
 echo "Creating client instances, please wait..."
 gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS); do echo   as-client-$i; done` --zone $ZONE --machine-type $CLIENT_INSTANCE_TYPE --tags "http-server" --image aerospike-image-1 --image-project $PROJECT
 
 # 7. BOOT SERVERS TO CREATE CLUSTER
-# - We are running server only on 7 cores (0-6) out of 8 cores using the taskset command
-# - Network latencies take a hit when all the cores are busy - taskset improves perf by 10-20%, but must verify w/GCE updates
-echo "Starting aerospike daemons on cores 0-6..."
+# - We are running server only on 19 cores (0-19) out of 20 cores using the taskset command
+# - Network latencies take a hit when all the cores are busy - taskset improves perf by 10-20%, 
+# - but must verify w/GCE updates
+echo "Starting aerospike daemons on cores 0-18..."
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "server-$i: "
   gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
@@ -92,8 +90,7 @@ export NUM_KEYS=100000000
 export CLIENT_THREADS=256
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 
-# 10. DO INSERTS AND RUNBENCHMARK TOOLS     
-# - Benchmark tools is included with Aerospike Java SDK
+# 10. RUN INSERT LOAD AND RUN BENCHMARK TOOL (included w/Aerospike Java SDK)   
 echo "Starting inserts benchmarks..."
 num_keys_perclient=$(expr $NUM_KEYS / $NUM_AS_CLIENTS )
 for i in $(seq 1 $NUM_AS_CLIENTS); do
@@ -110,7 +107,6 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
 done
 
 # 11. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage   
-# - start two instances of the client on each machine
 echo "Starting read/modify/write benchmarks..."
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 export READPCT=100
@@ -120,11 +116,10 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
   gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
+# 12. STOP THE LOAD
 # Wait for user input to shut down the benchmarks
 read -p "Press any key to stop the benchmarks..."
-
-# 12. STOP THE LOAD
-echo "Shutting down benchmark clients..."
+ "Shutting down benchmark clients..."
 for i in $(seq 1 $NUM_AS_CLIENTS); do
   echo -n "  as-client-$i: "
   gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
