@@ -7,18 +7,13 @@
 
 # ------------------- SETUP: STEPS 0-9 -----------------------
 # 0. PREPARE LOCAL WORKING AREA
-# - Open Terminal
-# - Create a working directory, cd into it
-# - Authenticate to GCP by running `gcloud auth login`
-# - Comment this step if you've already set up auth
+# - Open Terminal & Create a working directory, cd into it
+# - Authenticate to GCP 
 gcloud auth login
 
 # 1. SET VARIABLES
-# - parameterize how many server & clients we need
-# - Uncomment step-6 if number of servers >= 32   // default max in Aerospike is 32 servers, 1M TPS required 50 servers
-# -                                               // what are the default GCP project limits for resources?
-export NUM_AS_SERVERS=20                        # // estimated number of server for 1M TPS w/GCE update
-export NUM_AS_CLIENTS=20                        # // use 20 clients to avoid bottlenecks
+export NUM_AS_SERVERS=20                        
+export NUM_AS_CLIENTS=20                        
 export ZONE=us-central1-b
 export PROJECT=<your-project-name>              # the project where the image files live
 export SERVER_INSTANCE_TYPE=n1-standard-8
