@@ -17,7 +17,7 @@ gcloud auth login
 # - parameterize how many server & clients we need
 # - Uncomment step-6 if number of servers >= 32   // default max in Aerospike is 32 servers, 1M TPS required 50 servers
 # -                                               // what are the default GCP project limits for resources?
-export NUM_AS_SERVERS=10                        # // estimated number of server for 1M TPS w/GCE update
+export NUM_AS_SERVERS=20                        # // estimated number of server for 1M TPS w/GCE update
 export NUM_AS_CLIENTS=20                        # // use 20 clients to avoid bottlenecks
 export ZONE=us-central1-b
 export PROJECT=<your-project-name>              # the project where the image files live
