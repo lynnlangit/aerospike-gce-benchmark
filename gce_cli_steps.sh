@@ -55,7 +55,6 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
 done
 
 # 5. MODIFY CONFIG FILES TO SETUP MESH    
-#  NEED TO cat & grep the config files and look for the IP ##########################
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 echo "Updating remote config files to use server1 IP $server1_ip as mesh-address":
 for i in $(seq 1 $NUM_AS_SERVERS); do
