@@ -18,6 +18,7 @@ export PROJECT=<your-project-name>              # use your project name
 export SERVER_INSTANCE_TYPE=n1-standard-8
 export CLIENT_INSTANCE_TYPE=n1-highcpu-8
 export USE_PERSISTENT_DISK=0                    # 0 for in-mem only, 1 for persistent disk
+export GCE_USER=$USER                           # the username to use on Google Compute Engine
 
 # 2. SET DEFAULTS
 gcloud config set project $PROJECT
@@ -49,8 +50,7 @@ fi
 
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "as-server-$i: "
-  # NEED TO PARAMETERIZE the USERNAME ##############
-  gcloud compute copy-files $CONFIG_FILE sunil@as-server-$i:aerospike.conf    
+  gcloud compute copy-files $CONFIG_FILE $GCE_USER@as-server-$i:aerospike.conf    
   gcloud compute ssh as-server-$i --zone $ZONE --command "sudo mv ~/aerospike.conf /etc/aerospike/aerospike.conf"
 done
 
