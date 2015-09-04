@@ -11,7 +11,7 @@ export SERVER_INSTANCE_TYPE=n1-standard-8
 export CLIENT_INSTANCE_TYPE=n1-highcpu-8
 export USE_PERSISTENT_DISK=0                    # 0 for in-mem only, 1 for persistent disk
 export GCE_USER=$USER                           # the username to use on Google Compute Engine
-export AEROSPIKE_IMAGE=aerospike-image-1           # the Aerospike image you create and store in GCE Images
+export AEROSPIKE_IMAGE=aerospike-image-1        # the Aerospike image you create and store in GCE Images
 
 # 2. SET DEFAULTS
 gcloud config set project $PROJECT
@@ -107,12 +107,15 @@ server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep ne
 export READPCT=100
 for i in $(seq 1 $NUM_AS_CLIENTS); do
   echo -n "  as-client-$i: "
-  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
-  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
+  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; 
+    ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k 
+      $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
+  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; 
+    ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k 
+      $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
 # 12. STOP THE LOAD
-# Wait for user input to shut down the benchmarks
 read -p "Press any key to stop the benchmarks..."
  "Shutting down benchmark clients..."
 for i in $(seq 1 $NUM_AS_CLIENTS); do
