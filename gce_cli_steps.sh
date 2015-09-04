@@ -1,6 +1,5 @@
 # ---------------STARTING WITH GOOGLE CLOUD: STEP 0------------
-# - Open Terminal & Create a working directory, cd into it
-gcloud auth login                               # authenticate to GCP
+gcloud auth login                               # authenticate to GCP from your working directory via Terminal
 
 # ------------------- SETUP: STEPS 1-8 -----------------------
 # 1. SET VARIABLES
@@ -19,8 +18,7 @@ gcloud config set project $PROJECT
 gcloud config set compute/zone $ZONE
 
 # 3. CREATE SERVER GCE VMS AND DISKS          
-# - In parallel, create server instances from an image. Create persistent disks if requested.
-echo "Creating GCE instances, please wait..."
+echo "Creating GCE instances and disks in parallel, please wait..."
 gcloud compute instances create `for i in $(seq 1 $NUM_AS_SERVERS); 
 do echo   creating as-server-$i; 
 done` --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --image $SERVER_IMAGE --image-project $PROJECT
