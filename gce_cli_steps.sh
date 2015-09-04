@@ -1,10 +1,4 @@
 # ---------------STARTING WITH GOOGLE CLOUD: STEP 0------------
-# - Create or use your GCP account at https://cloud.google.com/
-# - Access your GCP console at https://console.developers.google.com
-# - Create a new GCP project, note the project name
-# - Install the gcloud tool download from - https://cloud.google.com/sdk/
-
-# 0. PREPARE LOCAL WORKING AREA
 # - Open Terminal & Create a working directory, cd into it
 # - Authenticate to GCP 
 gcloud auth login
