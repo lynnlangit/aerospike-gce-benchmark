@@ -1,7 +1,6 @@
 # ---------------STARTING WITH GOOGLE CLOUD: STEP 0------------
 # - Open Terminal & Create a working directory, cd into it
-# - Authenticate to GCP 
-gcloud auth login
+gcloud auth login                               # authenticate to GCP
 
 # ------------------- SETUP: STEPS 1-8 -----------------------
 # 1. SET VARIABLES
