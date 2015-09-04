@@ -12,6 +12,7 @@ export SERVER_INSTANCE_TYPE=n1-standard-8
 export CLIENT_INSTANCE_TYPE=n1-highcpu-8
 export USE_PERSISTENT_DISK=0                    # 0 for in-mem only, 1 for persistent disk
 export GCE_USER=$USER                           # the username to use on Google Compute Engine
+export SERVER_IMAGE=aerospike-image-1           # the Aerospike image you create and store in GCE Images
 
 # 2. SET DEFAULTS
 gcloud config set project $PROJECT
@@ -22,7 +23,7 @@ gcloud config set compute/zone $ZONE
 echo "Creating GCE instances, please wait..."
 gcloud compute instances create `for i in $(seq 1 $NUM_AS_SERVERS); 
 do echo   creating as-server-$i; 
-done` --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --image aerospike-image-1 --image-project $PROJECT
+done` --zone $ZONE --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" --image $SERVER_IMAGE --image-project $PROJECT
 if [ $USE_PERSISTENT_DISK -eq 1 ]
 then
   gcloud compute disks create `for i in $(seq 1 $NUM_AS_SERVERS); 
