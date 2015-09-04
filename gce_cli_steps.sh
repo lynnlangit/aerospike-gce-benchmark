@@ -67,15 +67,15 @@ done
 echo "Creating client instances, please wait..."
 gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS); do echo   as-client-$i; done` --zone $ZONE --machine-type $CLIENT_INSTANCE_TYPE --tags "http-server" --image aerospike-image-1 --image-project $PROJECT
 
-# 7. BOOT SERVERS TO CREATE CLUSTER
+# 7. BOOT SERVERS TO CREATE CLUSTER  ***We Need to test WITHOUT 'taskset'***
 # - We are running server only on 19 cores (0-19) out of 20 cores using the taskset command
 # - Network latencies take a hit when all the cores are busy - taskset improves perf by 10-20%, 
 # - but must verify w/GCE updates
-echo "Starting aerospike daemons on cores 0-18..."
-for i in $(seq 1 $NUM_AS_SERVERS); do
-  echo -n "server-$i: "
-  gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
-done
+#echo "Starting aerospike daemons on cores 0-18..."
+#for i in $(seq 1 $NUM_AS_SERVERS); do
+#  echo -n "server-$i: "
+#  gcloud compute ssh as-server-$i --zone $ZONE --command "sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
+#done
 
 # 8. START AMC (Aerospike Management Console) on server-1
 # - Find the public IP of as-server-1 and in your browser open http://<public ip of server-1>:8081
