@@ -1,7 +1,7 @@
 # ---------------STARTING WITH GOOGLE CLOUD: STEP 0------------
 gcloud auth login                               # authenticate to GCP from your working directory via Terminal
 
-# ------------------- SETUP: STEPS 1-6 -----------------------
+# ------------------- SETUP: STEPS 1-5 -----------------------
 # 1a. SET VARIABLES
 export NUM_AS_SERVERS=20                        
 export NUM_AS_CLIENTS=20                        
@@ -61,7 +61,7 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS);
   do echo   as-client-$i; done` --zone $ZONE --machine-type $CLIENT_INSTANCE_TYPE --tags "http-server" 
     --image $AEROSPIKE_IMAGE --image-project $PROJECT
 
-# 5. BOOT SERVERS TO CREATE CLUSTER  ***We Need to test WITHOUT 'taskset'***
+# 4b?. BOOT SERVERS TO CREATE CLUSTER  ***We Need to test WITHOUT 'taskset'***
 # - We are running server only on 19 cores (0-19) out of 20 cores using the taskset command
 # - Network latencies take a hit when all the cores are busy - taskset improves perf by 10-20%, 
 # - but must verify w/GCE updates
@@ -72,7 +72,7 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS);
 #    sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
 #done
 
-# 6. START AMC (Aerospike Management Console) on server-1
+# 5. START AMC (Aerospike Management Console) on server-1
 # - Find the public IP of as-server-1 and in your browser open http://<public ip of server-1>:8081
 # - Then enter the internal IP in the dialog box in the AMC window http://<internal IP of server-1>:3000
 # - You can find the IPs on GCP console, COMPUTE>click on instance named 'server-1'
@@ -80,13 +80,13 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS);
 echo "Starting Aerospike management console on as-server-1"
 gcloud compute ssh as-server-1 --zone $ZONE --ssh-flag="-t" --command "sudo service amc start"
 
-# ------------------- LOAD: STEPS 7a-c -----------------------
-# 7a. SET LOAD PARAMETERS
+# ------------------- LOAD: STEPS 6a-c -----------------------
+# 6a. SET LOAD PARAMETERS
 export NUM_KEYS=100000000
 export CLIENT_THREADS=256
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 
-# 7b. RUN INSERT LOAD AND RUN BENCHMARK TOOL (included w/Aerospike Java SDK)   
+# 6b. RUN INSERT LOAD AND RUN BENCHMARK TOOL (included w/Aerospike Java SDK)   
 echo "Starting inserts benchmarks..."
 num_keys_perclient=$(expr $NUM_KEYS / $NUM_AS_CLIENTS )
 for i in $(seq 1 $NUM_AS_CLIENTS); do
@@ -102,7 +102,7 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
     -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
-# 7c. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage   
+# 6c. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage   
 echo "Starting read/modify/write benchmarks..."
 server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep networkIP | cut -d ' ' -f 4`
 export READPCT=100
@@ -116,8 +116,8 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
       $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
-# ------------------- STOP & CLEAN UP: STEPS 8-11 -----------------------
-# 8. STOP THE LOAD
+# ------------------- STOP & CLEAN UP: STEPS 7-10 -----------------------
+# 7. STOP THE LOAD
 read -p "Press any key to stop the benchmarks..."
  "Shutting down benchmark clients..."
 for i in $(seq 1 $NUM_AS_CLIENTS); do
@@ -125,14 +125,14 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
   gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
 done
 
-# 9. STOP SERVERS
+# 8. STOP SERVERS
 echo "Shutting down aerospike daemons..."
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "  as-server-$i: "
   gcloud compute ssh as-server-$i --zone $ZONE --command "sudo kill \`pgrep asd\`"
 done
 
-# 10. DELETE DISKS
+# 9. DELETE DISKS
 if [ $USE_PERSISTENT_DISK -eq 1 ]
 then
   echo "Deleting persistent disks..."
@@ -144,7 +144,7 @@ then
    do echo   deleting as-persistent-disk-$i; done` --zone $ZONE -q
 fi
 
-# 11. SHUTDOWN ALL INSTANCES
+# 10. SHUTDOWN ALL INSTANCES
 echo "Shutting down VM instances..."
 gcloud compute instances delete --quiet --zone $ZONE `for i in $(seq 1 $NUM_AS_SERVERS); 
 do echo -n   as-server-$i " "; done`
