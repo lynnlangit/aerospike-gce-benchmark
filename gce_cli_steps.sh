@@ -75,8 +75,6 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS);
 # 5. START AMC (Aerospike Management Console) on server-1
 # - Find the public IP of as-server-1 and in your browser open http://<public ip of server-1>:8081
 # - Then enter the internal IP in the dialog box in the AMC window http://<internal IP of server-1>:3000
-# - You can find the IPs on GCP console, COMPUTE>click on instance named 'server-1'
-# - You may need to create firewall rules to open the ports, GCP console, COMPUTE>Firewalls
 echo "Starting Aerospike management console on as-server-1"
 gcloud compute ssh as-server-1 --zone $ZONE --ssh-flag="-t" --command "sudo service amc start"
 
