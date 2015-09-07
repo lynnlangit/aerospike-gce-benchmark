@@ -73,8 +73,7 @@ gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS);
 #done
 
 # 5. START AMC (Aerospike Management Console) on server-1
-# - Find the public IP of as-server-1 and in your browser open http://<public ip of server-1>:8081
-# - Then enter the internal IP in the dialog box in the AMC window http://<internal IP of server-1>:3000
+# - Find the public IP of as-server-1, open http://<public ip of server-1>:8081, then http://<internal IP of server-1>:3000
 echo "Starting Aerospike management console on as-server-1"
 gcloud compute ssh as-server-1 --zone $ZONE --ssh-flag="-t" --command "sudo service amc start"
 
@@ -91,9 +90,6 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
   startkey=$(expr \( $NUM_KEYS / $NUM_AS_CLIENTS \) \* \( $i - 1 \) )
   echo -n "  as-client-$i: "
 # - For more about benchmark flags, use 'benchmarks -help'
-# - Benchmark flags as follows - uses 256 threads, -n <namespace>, -w <workload>, I <Insert>, 
-# - continues... -o <objects>, S:50 <strings of size 50>, -b <num bins or columns>, -l <key size in bytes>, -S <starting key>,
-# - continues... -k <keys per client>, -latency <historgram output>
   gcloud compute ssh as-client-$i --zone $ZONE --command 
     "cd ~/aerospike-client-java/benchmarks ; 
     ./run_benchmarks -z $CLIENT_THREADS -n test -w I 
