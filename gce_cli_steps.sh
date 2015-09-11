@@ -51,26 +51,27 @@ server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep ne
 echo "Updating remote config files to use server1 IP $server1_ip as mesh-address":
 for i in $(seq 1 $NUM_AS_SERVERS); do
   echo -n "  as-server-$i: "
-  gcloud compute ssh as-server-$i --zone $ZONE --command 
+  gcloud compute ssh as-server-$i --zone $ZONE --command \
    "sudo sed -i 's/mesh-address .*/mesh-address $server1_ip/g' /etc/aerospike/aerospike.conf"
 done
 
 # 4. CREATE CLIENT VMS
 echo "Creating client instances and disks in parallel, please wait..."
 gcloud compute instances create `for i in $(seq 1 $NUM_AS_CLIENTS); 
-  do echo   as-client-$i; done` --zone $ZONE --machine-type $CLIENT_INSTANCE_TYPE --tags "http-server" 
+  do echo   as-client-$i; done` --zone $ZONE --machine-type $CLIENT_INSTANCE_TYPE --tags "http-server" \
     --image $AEROSPIKE_IMAGE --image-project $PROJECT
 
 # 4b?. BOOT SERVERS TO CREATE CLUSTER  ***We Need to test WITHOUT 'taskset'***
 # - We are running server only on 19 cores (0-19) out of 20 cores using the taskset command
 # - Network latencies take a hit when all the cores are busy - taskset improves perf by 10-20%, 
 # - but must verify w/GCE updates
-#echo "Starting aerospike daemons on cores 0-18..."
-#for i in $(seq 1 $NUM_AS_SERVERS); do
-#  echo -n "server-$i: "
-#  gcloud compute ssh as-server-$i --zone $ZONE --command "
-#    sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
-#done
+echo "Starting aerospike daemons..."
+for i in $(seq 1 $NUM_AS_SERVERS); do
+  echo -n "server-$i: "
+  #gcloud compute ssh as-server-$i --zone $ZONE --command "
+  #  sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
+  gcloud compute ssh as-server-$i --zone $ZONE --command "sudo /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
+done
 
 # 5. START AMC (Aerospike Management Console) on server-1
 # - Find the public IP of as-server-1, open http://<public ip of server-1>:8081, then http://<internal IP of server-1>:3000
@@ -90,10 +91,10 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
   startkey=$(expr \( $NUM_KEYS / $NUM_AS_CLIENTS \) \* \( $i - 1 \) )
   echo -n "  as-client-$i: "
 # - For more about benchmark flags, use 'benchmarks -help'
-  gcloud compute ssh as-client-$i --zone $ZONE --command 
-    "cd ~/aerospike-client-java/benchmarks ; 
-    ./run_benchmarks -z $CLIENT_THREADS -n test -w I 
-    -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
+  gcloud compute ssh as-client-$i --zone $ZONE --command \
+    "cd ~sunil/aerospike-client-java/benchmarks ;
+    ./run_benchmarks -z $CLIENT_THREADS -n test -w I \
+      -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
 # 6c. RUN READ-MODIFY-WRITE LOAD and also READ LOAD with desired read percentage   
@@ -102,18 +103,18 @@ server1_ip=`gcloud compute instances describe as-server-1 --zone $ZONE | grep ne
 export READPCT=100
 for i in $(seq 1 $NUM_AS_CLIENTS); do
   echo -n "  as-client-$i: "
-  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; 
-    ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k 
+  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~sunil/aerospike-client-java/benchmarks ;
+    ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k \
       $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
-  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~/aerospike-client-java/benchmarks ; 
-    ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k 
+  gcloud compute ssh as-client-$i --zone $ZONE --command "cd ~sunil/aerospike-client-java/benchmarks ;
+    ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 -l 20 -k \
       $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &"
 done
 
 # ------------------- STOP & CLEAN UP: STEPS 7-10 -----------------------
 # 7. STOP THE LOAD
 read -p "Press any key to stop the benchmarks..."
- "Shutting down benchmark clients..."
+echo "Shutting down benchmark clients..."
 for i in $(seq 1 $NUM_AS_CLIENTS); do
   echo -n "  as-client-$i: "
   gcloud compute ssh as-client-$i --zone $ZONE --command "kill \`pgrep java\`"
