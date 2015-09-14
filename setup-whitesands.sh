@@ -3,12 +3,14 @@
 NUM_AS_SERVERS=20
 NUM_AS_CLIENTS=20
 ZONE=us-central1-b
-PROJECT=maximal-inkwell-658
+PROJECT=<your-project-name>
 
 GCLOUD_ARGS="--zone $ZONE --project $PROJECT"
 
 SERVER_IPS=""
 CLIENT_IPS=""
+
+ROOT_PASSWORD=password
 
 # enable ssh login
 /bin/echo "Setting up password login on servers..."
@@ -17,7 +19,7 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
     gcloud compute ssh $GCLOUD_ARGS as-server-$i --ssh-flag="-o LogLevel=quiet" \
         --command "sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config;
                    sudo sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config;
-                   echo 'root:password' | sudo chpasswd;
+                   echo 'root:$ROOT_PASSWORD' | sudo chpasswd;
                    sudo service ssh restart > /dev/null"
 done
 /bin/echo ""
@@ -28,7 +30,7 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
     gcloud compute ssh $GCLOUD_ARGS as-client-$i --ssh-flag="-o LogLevel=quiet" \
         --command "sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config;
                    sudo sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config;
-                   echo 'root:password' | sudo chpasswd;
+                   echo 'root:$ROOT_PASSWORD' | sudo chpasswd;
                    sudo service ssh restart > /dev/null"
 done
 /bin/echo ""
