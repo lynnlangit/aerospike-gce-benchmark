@@ -57,7 +57,6 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
 done
 /bin/echo
 
-
 # 3b. MODIFY CONFIG FILES TO SETUP MESH
 server1_ip=`gcloud compute instances describe $GCLOUD_ARGS as-server-1 | grep networkIP | cut -d ' ' -f 4`
 server1_external_ip=`gcloud compute instances describe $GCLOUD_ARGS as-server-1 | grep natIP | cut -d ' ' -f 6`
