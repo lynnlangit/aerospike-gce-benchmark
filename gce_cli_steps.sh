@@ -69,21 +69,16 @@ for i in $(seq 1 $NUM_AS_SERVERS); do
 done
 /bin/echo
 
-# 4. CREATE CLIENT VMS
+# 4a. CREATE CLIENT VMS
 /bin/echo "Creating client instances, please wait..."
 gcloud compute instances create $GCLOUD_ARGS $CLIENT_INSTANCES \
     --machine-type $CLIENT_INSTANCE_TYPE --tags "benchmark-client" \
     --image $AEROSPIKE_IMAGE --image-project $PROJECT
 
-# 4b?. BOOT SERVERS TO CREATE CLUSTER  ***We Need to test WITHOUT 'taskset'***
-# - We are running server only on 19 cores (0-19) out of 20 cores using the taskset command
-# - Network latencies take a hit when all the cores are busy - taskset improves perf by 10-20%,
-# - but must verify w/GCE updates
+# 4b. BOOT SERVERS TO CREATE CLUSTER  
 /bin/echo "Starting aerospike daemons..."
 for i in $(seq 1 $NUM_AS_SERVERS); do
   /bin/echo -n "  server-$i"
-  #gcloud compute ssh as-server-$i --zone $ZONE --command "
-  #  sudo taskset -c 0-6 /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
   gcloud compute ssh $GCLOUD_ARGS as-server-$i --ssh-flag="-o LogLevel=quiet" \
       --command "sudo /usr/bin/asd --config-file /etc/aerospike/aerospike.conf"
 done
