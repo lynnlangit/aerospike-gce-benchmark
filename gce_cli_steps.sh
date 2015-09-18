@@ -106,7 +106,7 @@ for i in $(seq 1 $NUM_AS_CLIENTS); do
     /bin/echo -n "  as-client-$i: "
     # - For more about benchmark flags, use 'benchmarks -help'
     gcloud compute ssh $GCLOUD_ARGS as-client-$i --command \
-        "cd ~sunil/aerospike-client-java/benchmarks ;
+        "cd ~/aerospike-client-java/benchmarks ;
         ./run_benchmarks -z $CLIENT_THREADS -n test -w I \
           -o S:50 -b 3 -l 20 -S $startkey -k $num_keys_perclient -latency 10,1 \
           -h $server1_ip > /dev/null &" \
@@ -120,7 +120,7 @@ export READPCT=100
 for i in $(seq 1 $NUM_AS_CLIENTS); do
     /bin/echo -n "  as-client-$i"
     gcloud compute ssh $GCLOUD_ARGS as-client-$i --command \
-        "cd ~sunil/aerospike-client-java/benchmarks ;
+        "cd ~/aerospike-client-java/benchmarks ;
         ./run_benchmarks -z $CLIENT_THREADS -n test -w RU,$READPCT -o S:50 -b 3 \
           -l 20 -k $NUM_KEYS -latency 10,1 -h $server1_ip > /dev/null &" \
         --ssh-flag="-o LogLevel=quiet"
