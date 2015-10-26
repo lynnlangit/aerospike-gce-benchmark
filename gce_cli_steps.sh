@@ -2,8 +2,8 @@
 
 # ---------------STARTING WITH GOOGLE CLOUD: STEP 0------------
 ACCOUNT=<your GCE user email>
-gcloud auth login $ACCOUNT --brief              # authenticate to GCP from your working directory via Terminal.
-                                                # will not launch if $ACCOUNT already has credentials.
+gcloud auth login $ACCOUNT --brief              # authenticate to GCP from your working directory via Terminal
+                                                # will not launch if $ACCOUNT already has credentials
 
 # ------------------- SETUP: STEPS 1-5 -----------------------
 # 1a. SET VARIABLES
@@ -14,7 +14,7 @@ PROJECT=<your GCE project>               # use your project name
 SERVER_INSTANCE_TYPE=n1-standard-8
 CLIENT_INSTANCE_TYPE=n1-highcpu-8
 USE_PERSISTENT_DISK=0                    # 0 for in-mem only, 1 for persistent disk
-AEROSPIKE_IMAGE=aerospike-image-1        # the Aerospike image you create and store in GCE Images
+AEROSPIKE_IMAGE=aerospike-image-1        # the Aerospike image you create & store in GCE Images
 
 SERVER_INSTANCES=`for i in $(seq 1 $NUM_AS_SERVERS); do echo as-server-$i; done`
 SERVER_DISKS=`for i in $(seq 1 $NUM_AS_SERVERS); do echo as-persistent-disk-$i; done`
@@ -22,13 +22,13 @@ CLIENT_INSTANCES=`for i in $(seq 1 $NUM_AS_CLIENTS); do echo as-client-$i; done`
 
 GCLOUD_ARGS="--zone $ZONE --project $PROJECT"
 
-# 2. CREATE SERVER GCE VMS AND DISKS
+# 2. CREATE SERVER GCE VMS & DISKS
 echo "Creating GCE server instances, please wait..."
 gcloud compute instances create $GCLOUD_ARGS $SERVER_INSTANCES \
     --machine-type $SERVER_INSTANCE_TYPE --tags "http-server" \
     --image $AEROSPIKE_IMAGE --image-project $PROJECT
 
-# Set up persistent disks if necessary
+# SETUP PERSISTENT DISKS (optional)
 if [ $USE_PERSISTENT_DISK -eq 1 ]
 then
     /bin/echo "Creating persistent disks..."
